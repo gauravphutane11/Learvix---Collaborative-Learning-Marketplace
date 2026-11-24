@@ -1,0 +1,23 @@
+LEARVIX — QUICK START
+
+1) Backend terminal:
+   cd backend
+   py -m venv .venv
+   .venv\Scripts\activate
+   Copy-Item .env.example .env
+   pip install -r requirements.txt
+   python seed.py
+   python app.py
+
+2) Frontend terminal:
+   cd frontend
+   npm install
+   npm run dev
+
+3) Open http://localhost:5173
+
+DEMO LOGIN
+Email: demo@learvix.com
+Password: Learvix@123
+
+Keep both terminals open while presenting.
