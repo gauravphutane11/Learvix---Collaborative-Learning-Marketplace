@@ -172,8 +172,21 @@ def create_app():
         if "status" in data:
             status=data["status"]
             if status not in ("pending","active","rejected","completed","cancelled"): return jsonify(msg="Invalid exchange status"),400
-            if status=="pending" and uid != ex.partner_id: return jsonify(msg="Only the recipient can respond to a request"),403
-            if status in ("rejected","active") and ex.status!="pending": return jsonify(msg="This request has already been answered"),409
+
+            # Only the recipient can accept or reject a pending request.
+            if status in ("active","rejected"):
+                if uid != ex.partner_id:
+                    return jsonify(msg="Only the recipient can accept or reject this request"),403
+                if ex.status != "pending":
+                    return jsonify(msg="This request has already been answered"),409
+
+            # Pending is the initial state created by POST /api/exchanges.
+            if status == "pending":
+                return jsonify(msg="A request cannot be reset to pending"),400
+
+            if status == "completed" and ex.status != "active":
+                return jsonify(msg="Only an active exchange can be completed"),409
+
             ex.status=status
         if "sessions_completed" in data:
             try: count=int(data["sessions_completed"])
@@ -188,7 +201,22 @@ def create_app():
             ex.rating=rating
         other=ex.partner_id if uid==ex.user_id else ex.user_id; actor=db.session.get(User,uid)
         if "status" in data or "sessions_completed" in data:
-            db.session.add(Notification(user_id=other,title="Exchange updated",message=f"{actor.name} updated your exchange #{ex.id}.",type="success" if ex.status=="completed" else "info",related_exchange_id=ex.id))
+            if ex.status == "active":
+                notification_title = "Exchange accepted"
+                notification_message = f"{actor.name} accepted exchange #{ex.id}."
+            elif ex.status == "rejected":
+                notification_title = "Exchange declined"
+                notification_message = f"{actor.name} declined exchange #{ex.id}."
+            else:
+                notification_title = "Exchange updated"
+                notification_message = f"{actor.name} updated your exchange #{ex.id}."
+            db.session.add(Notification(
+                user_id=other,
+                title=notification_title,
+                message=notification_message,
+                type="success" if ex.status in ("active", "completed") else "info",
+                related_exchange_id=ex.id
+            ))
         db.session.commit(); return jsonify(ex.to_dict())
 
     @app.get("/api/skillproof/skills")
